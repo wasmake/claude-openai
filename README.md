@@ -1,258 +1,188 @@
 # Claude OpenAI
 
-OpenAI-compatible local server + plugin for Claude Code CLI.
+Local OpenAI-compatible proxy for Claude Code CLI.
 
-## Requirements
+> **Warning:** OpenCode use is experimental and text-oriented. It is **not** full agent/tool compatibility: `tool_calls`, images, and many OpenAI extras are ignored.
 
-- Node.js 20 or newer
-- Claude Code CLI `>=2.1.197`
-- `node` and `claude` on your `PATH`
-- Claude Code authenticated locally with `claude auth login`
+## How it works
 
-Check versions first:
+```
+OpenAI client
+   → loopback HTTP server
+   → POST /v1/chat/completions
+   → message/model conversion
+   → fresh `claude` subprocess per request
+   → stdin + `stream-json`
+   → OpenAI JSON / SSE conversion
+```
+
+- The server is a loopback proxy; each request starts a new Claude CLI subprocess from the proxy cwd.
+- Full conversation history is replayed every call; the server keeps no OpenAI chat state.
+- `system` and `developer` messages are merged into Claude’s system prompt; prior `assistant` turns are sent back as context.
+- Supported endpoints: `/health`, `/v1/models`, `/v1/chat/completions`, `/v1/usage`, `/v1/usage/recent`.
+- Compatibility boundaries: no `tool_calls`, image parts are ignored, sampling params are ignored, and this is not the full OpenAI API.
+
+## Setup, phase 1: Claude CLI first
+
+1. Install Node.js **20+**.
+2. Install or update Claude Code CLI to **>=2.1.197**.
+3. Confirm both are on `PATH`:
 
 ```bash
 node --version
 claude --version
 ```
 
-PowerShell:
+4. Sign in to Claude Code:
 
-```powershell
-node --version
-claude --version
+```bash
+claude auth login
 ```
 
-## Fresh-clone setup
+5. Smoke-test the CLI directly:
 
-1. Clone the repo.
-2. Install dependencies with `npm ci`.
-3. Build with `npm run build`.
-4. Optionally copy `.env.example` to `.env`.
-5. Explicitly load env vars yourself; this project does not auto-load `.env`.
-6. This repo is private/source-only; the server is not distributed from npm.
+```bash
+claude --print "Reply with exactly OK"
+```
 
-POSIX shell:
+Startup logs and `/health` only prove the server is running; they do **not** prove Claude auth.
+
+## Setup, phase 2: proxy
 
 ```bash
 git clone https://github.com/wasmake/claude-openai.git
 cd claude-openai
 npm ci
 npm run build
-if [ ! -e .env ]; then cp .env.example .env; fi   # optional template only
-if [ -f .env ]; then
-  # Sourcing executes shell code; only source trusted files.
-  set -a
-  . ./.env
-  set +a
-fi
+# .env.example is reference only; .env is not auto-loaded.
+export CLAUDE_OPENAI_API_KEY='local-key'
+export API_KEYS="$CLAUDE_OPENAI_API_KEY"
+export DEBUG=''
 npm start
 ```
 
-PowerShell:
+- `API_KEYS` is proxy auth; it is separate from Claude auth.
+- It accepts a comma-separated list; the client bearer token must match one entry exactly.
+- Leave `API_KEYS` empty to disable proxy auth.
+- Restart the proxy after changing env vars.
+- Custom port: `npm start -- 4000`
+
+Windows (direct env assignments only):
 
 ```powershell
 git clone https://github.com/wasmake/claude-openai.git
 Set-Location claude-openai
 npm ci
 npm run build
-if (-not (Test-Path .env)) { Copy-Item .env.example .env }   # optional template only
-
-# Or set env vars directly in this shell:
-$env:API_KEYS = ''
-$env:DEBUG = ''
+$env:CLAUDE_OPENAI_API_KEY='local-key'
+$env:API_KEYS=$env:CLAUDE_OPENAI_API_KEY
+$env:DEBUG=''
 npm start
 ```
 
-Copying `.env.example` alone is not enough; there is no dotenv loader.
+## Why use it
 
-## Server start
+It lets OpenAI Chat Completions clients talk to a locally authenticated Claude CLI without changing their request shape.
 
-- Default bind: `127.0.0.1:3456`
-- Custom port: `npm start -- 4000`
-- Standalone host is not configurable through env vars or CLI flags
+For OpenCode, that means you can point a model entry at this proxy and keep using OpenCode’s existing OpenAI-compatible flow.
 
-Restart the server after changing env vars.
+## Current models
 
-## Environment
-
-`API_KEYS` enables proxy bearer auth when non-empty.
-
-- Comma-separated Bearer keys are allowed.
-- A client `API_KEY` must exactly match one comma-separated `API_KEYS` entry.
-- Blank `API_KEYS=` disables auth.
-- When enabled, `/v1/*` routes require `Authorization: Bearer <API_KEY>`.
-- `/health` and `OPTIONS` preflight stay public.
-- Claude Code auth is separate; you still need `claude auth login`.
-
-`DEBUG` enables request logging when it is any non-empty value.
-
-- `DEBUG=false` still enables logging.
-- `DEBUG=0` still enables logging.
-- Empty `DEBUG=` disables it.
-
-## Claude Code auth smoke test
-
-Run this after `claude auth login`:
-
-```bash
-claude --print "Reply with exactly OK"
-```
-
-Startup logs and `/health` do not prove Claude Code authentication; they only show the server is up and which auth mode is configured.
-
-## Models
-
-Current GA model IDs advertised by `/v1/models`:
+Advertised GA model IDs:
 
 - `claude-fable-5`
 - `claude-opus-4-8`
 - `claude-sonnet-5`
 - `claude-haiku-4-5-20251001`
 
-Aliases accepted as request inputs:
+Aliases include `fable`, `opus`, `sonnet`, and `haiku`.
 
-- `fable`
-- `opus`
-- `sonnet`
-- `haiku`
-- `claude-haiku-4-5`
+`/v1/models` is a support list, not an entitlement list; access still depends on your Claude subscription, account state, and Anthropic rollout.
 
-Compatibility inputs also accepted but not advertised:
+## OpenCode
 
-- `claude-opus-4`
-- `claude-opus-4-6`
-- `claude-sonnet-4`
-- `claude-sonnet-4-5-20250929`
-- `claude-haiku-4`
+Use either global `~/.config/opencode/opencode.json` or project `./opencode.json` (project config can override global config).
 
-Supported prefixes: `claude-openai/`, `claude-code-cli/`, `anthropic/`, `claude-max/`.
+`{env:CLAUDE_OPENAI_API_KEY}` reads the OpenCode process environment, so set it in the shell that launches OpenCode.
 
-`/v1/models` is a support list, not an entitlement list. Access still depends on your Claude subscription, account state, and Anthropic rollout.
+POSIX:
 
-### Pricing used for usage estimates
+```bash
+export CLAUDE_OPENAI_API_KEY='local-key'
+```
 
-Verified from Anthropic sources on **2026-07-16**:
+PowerShell:
 
-- Fable 5: `$10 / MTok in`, `$50 / MTok out`, cache `write $12.50`, `read $1`
-- Opus 4.8: `$5 / MTok in`, `$25 / MTok out`, cache `write $6.25`, `read $0.50`
-- Sonnet 5: `$2 / MTok in`, `$10 / MTok out` through 2026-08-31, then `$3 / $15`; cache `write $2.50/$3.75`, `read $0.20/$0.30`
-- Haiku 4.5: `$1 / MTok in`, `$5 / MTok out`, cache `write $1.25`, `read $0.10`
+```powershell
+$env:CLAUDE_OPENAI_API_KEY='local-key'
+```
 
-These estimates are not billing.
+The JSON below is auth-enabled. If proxy auth is disabled, delete `options.apiKey` and keep `API_KEYS` empty.
 
-Fable access may depend on your account/credits and rollout status.
+Restart OpenCode after editing config.
 
-## Request compatibility
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "claude-openai": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Claude OpenAI",
+      "options": {
+        "baseURL": "http://127.0.0.1:3456/v1",
+        "apiKey": "{env:CLAUDE_OPENAI_API_KEY}"
+      },
+      "models": {
+        "claude-sonnet-5": {
+          "name": "Claude Sonnet 5",
+          "tool_call": false
+        }
+      }
+    }
+  },
+  "model": "claude-openai/claude-sonnet-5"
+}
+```
 
-- Send the full conversation history on every call; the server does not keep OpenAI chat state for you.
-- Text-only compatibility: only text content is used from array parts; `image_url` parts are ignored.
-- `system` and `developer` messages become the system prompt.
-- Previous `assistant` messages are replayed as context.
-- `temperature`, `max_tokens`, `top_p`, `frequency_penalty`, and `presence_penalty` are accepted but ignored.
-- The OpenAI `user` field is used as a session id.
+`tool_call:false` only describes OpenCode’s expectations. Claude CLI still runs with `--dangerously-skip-permissions` from the proxy working directory, outside OpenCode permissions/snapshots.
 
-## Usage examples
+## Other tools
 
-Set `API_KEY` in the client terminal when auth is enabled. Use one exact value from `API_KEYS`. Leave `API_KEY` unset for public routes, or set a dummy non-empty value for SDKs when auth is disabled.
+### curl
 
-### Health
-
-`/health` is always public:
+Health:
 
 ```bash
 curl http://127.0.0.1:3456/health
 ```
 
-### Models
-
-Auth disabled:
+Models:
 
 ```bash
-curl http://127.0.0.1:3456/v1/models
+curl -H "Authorization: Bearer $CLAUDE_OPENAI_API_KEY" http://127.0.0.1:3456/v1/models
 ```
 
-Auth enabled:
-
-```bash
-curl -H "Authorization: Bearer $API_KEY" http://127.0.0.1:3456/v1/models
-```
-
-Use `/v1/models` to verify that auth works when `API_KEYS` is enabled.
-
-### Non-streaming chat
-
-Auth disabled:
+Chat completions:
 
 ```bash
 curl -X POST http://127.0.0.1:3456/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $CLAUDE_OPENAI_API_KEY" \
   -d '{"model":"claude-openai/claude-sonnet-5","messages":[{"role":"user","content":"Hello"}]}'
 ```
 
-Auth enabled:
-
-```bash
-curl -X POST http://127.0.0.1:3456/v1/chat/completions \
-  -H "Authorization: Bearer $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"claude-openai/claude-sonnet-5","messages":[{"role":"user","content":"Hello"}]}'
-```
-
-### Streaming chat
-
-Auth disabled:
+Streaming:
 
 ```bash
 curl -N -X POST http://127.0.0.1:3456/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $CLAUDE_OPENAI_API_KEY" \
   -d '{"model":"claude-openai/claude-sonnet-5","stream":true,"messages":[{"role":"user","content":"Write one short haiku about rain."}]}'
 ```
 
-Auth enabled:
+### OpenAI JavaScript SDK
 
-```bash
-curl -N -X POST http://127.0.0.1:3456/v1/chat/completions \
-  -H "Authorization: Bearer $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"claude-openai/claude-sonnet-5","stream":true,"messages":[{"role":"user","content":"Write one short haiku about rain."}]}'
-```
-
-### Usage
-
-Auth disabled:
-
-```bash
-curl http://127.0.0.1:3456/v1/usage
-```
-
-```bash
-curl "http://127.0.0.1:3456/v1/usage?since=0"
-```
-
-Auth enabled:
-
-```bash
-curl -H "Authorization: Bearer $API_KEY" http://127.0.0.1:3456/v1/usage
-```
-
-### Recent usage
-
-Auth disabled:
-
-```bash
-curl "http://127.0.0.1:3456/v1/usage/recent?limit=20"
-```
-
-Auth enabled:
-
-```bash
-curl -H "Authorization: Bearer $API_KEY" "http://127.0.0.1:3456/v1/usage/recent?limit=20"
-```
-
-## OpenAI SDK example
-
-Create a separate client project or install `openai` in a scratch directory; do not add it to this server.
+In a scratch directory:
 
 ```bash
 mkdir client
@@ -261,16 +191,12 @@ npm init -y
 npm install openai
 ```
 
-Save this as `client.mjs`:
-
 ```js
 import OpenAI from "openai";
 
-const API_KEY = process.env.API_KEY || "dummy-key";
-
 const client = new OpenAI({
   baseURL: "http://127.0.0.1:3456/v1",
-  apiKey: API_KEY,
+  apiKey: process.env.CLAUDE_OPENAI_API_KEY || "local-dummy",
 });
 
 const completion = await client.chat.completions.create({
@@ -281,65 +207,61 @@ const completion = await client.chat.completions.create({
 console.log(completion.choices[0].message.content);
 ```
 
-Run it:
+Save as `client.mjs`, then run `node client.mjs`.
+
+### OpenAI Python SDK
+
+In a separate scratch directory:
 
 ```bash
-API_KEY=your-matching-key node client.mjs
+mkdir py-client
+cd py-client
+pip install openai
 ```
 
-If `API_KEYS` is disabled, any non-empty `API_KEY` works for the SDK.
+```python
+import os
+from openai import OpenAI
 
-## Scripts
+client = OpenAI(
+    base_url="http://127.0.0.1:3456/v1",
+    api_key=os.getenv("CLAUDE_OPENAI_API_KEY", "local-dummy"),
+)
 
-- `npm run build` compiles TypeScript to `dist/`.
-- `npm start` runs the already-built server from `dist/`; it does not rebuild.
-- `npm run dev` runs the TypeScript compiler in watch mode only.
-- `npm test` runs compiled tests from `dist/`, so build first.
+completion = client.chat.completions.create(
+    model="claude-openai/claude-sonnet-5",
+    messages=[{"role": "user", "content": "Say hello in one sentence."}],
+)
 
-## Plugin
+print(completion.choices[0].message.content)
+```
 
-Optional and host-dependent.
+Save as `client.py` and run it directly. All clients should use `chat.completions`, a supported model ID, and a non-empty key value (dummy OK) when proxy auth is off; curl can omit the header in that mode.
 
-- Provider id: `claude-openai`
-- Default model: `claude-openai/claude-sonnet-5`
-- Optional host support: `clawdbot >=2026.1.0`
+## Security and limitations
 
-## Security and operations
-
-- The server binds to loopback by default.
-- CORS is wildcarded for local development.
-- Auth is off by default unless `API_KEYS` is set.
-- The spawned Claude CLI inherits the full process environment.
-- Treat the working directory and calling client as trusted; the Claude CLI runs from the current working directory unless configured otherwise.
+- Loopback only; CORS is wide open for local development.
+- Proxy auth is off by default unless `API_KEYS` is set.
+- The spawned Claude CLI inherits the proxy environment and current working directory.
 - The subprocess uses `--no-session-persistence` and `--dangerously-skip-permissions`.
-- There is no TLS termination and no rate limiting here.
-- Usage data is stored under `$HOME/.claude-openai/usage.json`; if `HOME` is unset it falls back to `/tmp/.claude-openai/usage.json`.
-- Never commit `.env`.
-- `DEBUG` is noisy; any non-empty value turns logging on.
-- This is an unofficial project; review Anthropic terms before use.
+- No TLS termination, no rate limiting, and no trust boundary enforcement here.
+- Use only with trusted clients and a trusted working directory.
+- Unofficial project; review Anthropic terms before use.
 
 ## Troubleshooting
 
-- `claude` not found: install/upgrade Claude Code and make sure it is on `PATH`.
-- Wrong `claude` version: upgrade to `>=2.1.197` and re-check with `claude --version`.
-- Auth failure: run `claude auth login`, then verify with `claude --print "Reply with exactly OK"`.
-- Build/test failures: run `npm ci` and `npm run build` before `npm test`.
-- Port already in use: start with another port, for example `npm start -- 4000`.
-- HTTP 401: `API_KEYS` is enabled and the bearer token is missing or wrong.
-- SDK rejects an empty key: use a dummy non-empty key when proxy auth is disabled.
-- Invalid/unavailable model: use one of the advertised IDs, aliases, or supported compatibility IDs.
-
-## Caveats
-
-- Unofficial project; not affiliated with or endorsed by Anthropic.
-- Claude is a trademark of Anthropic PBC.
-- Review Anthropic terms before use.
-- Security-wise, the server uses `spawn()` with an argument array, not a shell.
+- `claude` not found: install/update Claude Code and re-check `PATH`.
+- Wrong version: upgrade to `>=2.1.197`.
+- Auth failure: rerun `claude auth login`, then smoke-test with `claude --print "Reply with exactly OK"`.
+- 401: proxy auth is enabled and the bearer token is wrong or missing.
+- SDK rejects empty key: use a dummy non-empty key when proxy auth is off.
+- Invalid model: use one of the advertised IDs or supported aliases.
+- Port busy: restart on another port, e.g. `npm start -- 4000`.
 
 ## Provenance
 
-Imported from upstream `https://github.com/sethschnrt/claude-max-api-proxy.git` at commit:
+Upstream source: `https://github.com/sethschnrt/claude-max-api-proxy.git`
 
-`45cae61d97ad3f40bd0cad644c136a088541e30a`
+Imported at commit `45cae61d97ad3f40bd0cad644c136a088541e30a`
 
 MIT licensed.
