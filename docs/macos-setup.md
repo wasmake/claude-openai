@@ -1,22 +1,25 @@
 # macOS Auto-Start Setup
 
-This guide shows how to configure the Claude Code CLI Provider to start automatically when you log in.
+This guide shows how to configure the Claude OpenAI provider to start automatically when you log in.
 
 ## Create LaunchAgent
 
 1. Create the plist file:
 
 ```bash
-cat > ~/Library/LaunchAgents/com.claude-code-provider.plist << 'PLIST'
+nodePath="$(command -v node)"
+workDir="/path/to/claude-openai"
+
+cat > ~/Library/LaunchAgents/com.claude-openai-provider.plist << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    <string>com.claude-code-provider</string>
+    <string>com.claude-openai-provider</string>
     
     <key>Comment</key>
-    <string>Claude Code CLI Provider (uses Claude Max subscription)</string>
+    <string>Claude OpenAI Provider (uses Claude Code CLI)</string>
     
     <key>RunAtLoad</key>
     <true/>
@@ -26,9 +29,12 @@ cat > ~/Library/LaunchAgents/com.claude-code-provider.plist << 'PLIST'
     
     <key>ProgramArguments</key>
     <array>
-      <string>/opt/homebrew/bin/node</string>
-      <string>/path/to/claude-code-cli-provider/dist/server/standalone.js</string>
+      <string>NODE_PATH_PLACEHOLDER</string>
+      <string>/path/to/claude-openai/dist/server/standalone.js</string>
     </array>
+
+    <key>WorkingDirectory</key>
+    <string>/path/to/claude-openai</string>
     
     <key>StandardOutPath</key>
     <string>/tmp/claude-provider.log</string>
@@ -46,21 +52,23 @@ cat > ~/Library/LaunchAgents/com.claude-code-provider.plist << 'PLIST'
   </dict>
 </plist>
 PLIST
+
+perl -0pi -e "s|NODE_PATH_PLACEHOLDER|$nodePath|g; s|/path/to/claude-openai|$workDir|g" ~/Library/LaunchAgents/com.claude-openai-provider.plist
 ```
 
 2. **Important:** Edit the file and replace:
-   - `/path/to/claude-code-cli-provider` with your actual path
-   - `/Users/YOUR_USERNAME` with your actual username
-   - Ensure the PATH includes the directory containing `claude` (check with `which claude`)
+    - `/path/to/claude-openai` with the actual checkout path for the repo
+    - `/Users/YOUR_USERNAME` with your actual username
+    - Ensure the PATH includes the directory containing `claude` (check with `which claude`)
 
 ## Load the Service
 
 ```bash
 # Load and start the service
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-code-provider.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-openai-provider.plist
 
 # Verify it's running
-launchctl list | grep claude-code
+launchctl list | grep claude-openai
 curl http://localhost:3456/health
 ```
 
@@ -68,16 +76,16 @@ curl http://localhost:3456/health
 
 ```bash
 # Check status
-launchctl list | grep claude-code
+launchctl list | grep claude-openai
 
 # Restart the service
-launchctl kickstart -k gui/$(id -u)/com.claude-code-provider
+launchctl kickstart -k gui/$(id -u)/com.claude-openai-provider
 
 # Stop the service (temporary)
-launchctl bootout gui/$(id -u)/com.claude-code-provider
+launchctl bootout gui/$(id -u)/com.claude-openai-provider
 
 # Start the service again
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-code-provider.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.claude-openai-provider.plist
 
 # View logs
 tail -f /tmp/claude-provider.log
@@ -88,8 +96,8 @@ tail -f /tmp/claude-provider.err.log
 
 ```bash
 # Stop and remove the service
-launchctl bootout gui/$(id -u)/com.claude-code-provider
-rm ~/Library/LaunchAgents/com.claude-code-provider.plist
+launchctl bootout gui/$(id -u)/com.claude-openai-provider
+rm ~/Library/LaunchAgents/com.claude-openai-provider.plist
 ```
 
 ## Troubleshooting

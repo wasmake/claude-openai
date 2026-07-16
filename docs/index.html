@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Claude Max API Proxy — Stop Paying Per Token</title>
-<meta name="description" content="Turn your $200/mo Claude Max subscription into a full OpenAI-compatible API. Drop-in replacement for any OpenAI client.">
-<meta property="og:title" content="Claude Max API Proxy">
-<meta property="og:description" content="Your Claude Max subscription, as an OpenAI API. Stop paying per token.">
+<title>Claude OpenAI — OpenAI-Compatible Claude Code CLI Proxy</title>
+<meta name="description" content="OpenAI-compatible local server and plugin for Claude Code CLI.">
+<meta property="og:title" content="Claude OpenAI">
+<meta property="og:description" content="OpenAI-compatible local server and plugin for Claude Code CLI.">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Claude Max API Proxy">
-<meta name="twitter:description" content="Your Claude Max subscription, as an OpenAI API. Stop paying per token.">
+<meta name="twitter:title" content="Claude OpenAI">
+<meta name="twitter:description" content="OpenAI-compatible local server and plugin for Claude Code CLI.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
@@ -592,43 +592,43 @@
 
 <div class="container">
   <nav>
-    <div class="logo">claude-max-api-proxy</div>
+    <div class="logo">claude-openai</div>
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#pricing">Pricing</a>
-      <a href="https://github.com/atalovesyou/claude-max-api-proxy">GitHub</a>
+      <a href="https://github.com/wasmake/claude-openai">GitHub</a>
     </div>
   </nav>
 
   <section class="hero">
     <span class="hero-tag">Open Source &middot; MIT License</span>
-    <h1>Your Max subscription,<br>as an <em>API</em></h1>
-    <p class="hero-sub">Turn your $200/mo Claude Max into a full OpenAI-compatible API. Any client, any SDK, zero extra cost.</p>
+    <h1>Claude OpenAI<br><em>local wrapper</em></h1>
+    <p class="hero-sub">Local OpenAI-compatible access for Claude Code CLI. Model availability depends on your Claude account and Anthropic rollout.</p>
     <div class="cta-row">
-      <a href="https://github.com/atalovesyou/claude-max-api-proxy" class="btn-primary">View on GitHub</a>
+      <a href="https://github.com/wasmake/claude-openai" class="btn-primary">View on GitHub</a>
       <a href="#quickstart" class="btn-secondary">Quick Start &darr;</a>
     </div>
   </section>
 
   <div class="savings-bar">
     <div class="savings-item">
-      <div class="savings-label">API Pricing (Opus)</div>
-      <div class="savings-value red">~$1,200/mo</div>
+        <div class="savings-label">Current GA lineup</div>
+      <div class="savings-value red">4 models</div>
     </div>
     <div class="divider-v"></div>
     <div class="savings-item">
-      <div class="savings-label">Claude Max</div>
-      <div class="savings-value">$200/mo</div>
+      <div class="savings-label">Prerequisite</div>
+      <div class="savings-value">Claude Code</div>
     </div>
     <div class="divider-v"></div>
     <div class="savings-item">
-      <div class="savings-label">This Proxy</div>
-      <div class="savings-value green">+$0</div>
+      <div class="savings-label">Access note</div>
+      <div class="savings-value green">Support list</div>
     </div>
     <div class="divider-v"></div>
     <div class="savings-item">
-      <div class="savings-label">You Save</div>
-      <div class="savings-value accent" id="savings-counter">$1,000+</div>
+      <div class="savings-label">Fable caveat</div>
+      <div class="savings-value accent">rollout / credits</div>
     </div>
   </div>
 
@@ -649,21 +649,21 @@
       <div class="flow-arrow">&rarr;</div>
       <div class="flow-step">
         <div class="step-num">Claude CLI</div>
-        <div class="step-label">claude --print</div>
+      <div class="step-label">claude --print</div>
         <div class="step-detail">Official subprocess</div>
       </div>
       <div class="flow-arrow">&rarr;</div>
       <div class="flow-step">
         <div class="step-num">Anthropic</div>
-        <div class="step-label">Your Max Plan</div>
-        <div class="step-detail">$200/mo flat</div>
+        <div class="step-label">Claude account</div>
+        <div class="step-detail">availability varies</div>
       </div>
     </div>
   </section>
 
   <section class="code-section reveal" id="quickstart">
-    <h2>Three commands. That's it.</h2>
-    <p>Install, start, use. Works with anything that speaks OpenAI.</p>
+    <h2>Source install. No npm publish.</h2>
+    <p>Run <code>npm start</code> in one terminal (it stays foreground), then send requests from a second terminal.</p>
     <div class="code-block">
       <div class="code-header">
         <span class="code-dot"></span>
@@ -671,88 +671,67 @@
         <span class="code-dot"></span>
         <span class="code-title">terminal</span>
       </div>
-      <pre><span class="comment"># Install globally</span>
-<span class="cmd">npm</span> install -g claude-max-api-proxy
+      <pre><span class="comment"># Clone from GitHub</span>
+<span class="cmd">git</span> clone https://github.com/wasmake/claude-openai.git
+<span class="cmd">cd</span> claude-openai
+<span class="cmd">npm</span> ci &amp;&amp; <span class="cmd">npm</span> run build
 
-<span class="comment"># Start the proxy</span>
-<span class="cmd">claude-max-api</span> &
+<span class="comment"># Start locally (keeps this terminal busy)</span>
+<span class="cmd">npm</span> start
 
-<span class="comment"># Use it with any OpenAI client</span>
+<span class="comment"># In a second terminal, use any OpenAI client</span>
 <span class="cmd">curl</span> <span class="url">http://localhost:3456/v1/chat/completions</span> \
   <span class="flag">-H</span> <span class="string">"Content-Type: application/json"</span> \
-  <span class="flag">-d</span> <span class="string">'{"model":"claude-opus-4-6","messages":[{"role":"user","content":"Hello!"}]}'</span></pre>
+  <span class="flag">-d</span> <span class="string">'{"model":"claude-openai/claude-sonnet-5","messages":[{"role":"user","content":"Hello!"}]}'</span></pre>
     </div>
   </section>
 
   <section class="features reveal" id="features">
-    <h2>Built for real use</h2>
+    <h2>Built for local use</h2>
     <div class="feature-grid">
       <div class="feature-card">
         <span class="feature-icon">//</span>
         <h3>OpenAI-Compatible</h3>
-        <p>Drop-in replacement. /v1/chat/completions with streaming, tool use, and multi-turn context. Works with Python SDK, Node SDK, curl.</p>
+        <p>OpenAI-style /v1/chat/completions with streaming and multi-turn context for local clients.</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">&gt;_</span>
         <h3>Official CLI</h3>
-        <p>Uses <code>claude --print</code> as a subprocess. No OAuth extraction, no private API scraping. When Anthropic blocked OAuth proxies, we kept working.</p>
+        <p>Uses <code>claude --print</code> as a subprocess. No OAuth extraction or private API scraping; review Anthropic terms before use.</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">$&nbsp;</span>
         <h3>Usage Tracking</h3>
-        <p>GET /v1/usage shows tokens used, requests made, and exactly how much you're saving vs API pricing. Watch the ROI in real-time.</p>
+        <p>GET /v1/usage shows token counts and estimated costs using official Anthropic pricing. Estimates only, not billing.</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">[=]</span>
         <h3>Streaming</h3>
-        <p>Full SSE streaming support. Real-time token-by-token responses, just like the native OpenAI API.</p>
+        <p>SSE streaming for real-time responses.</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">***</span>
         <h3>Team Auth</h3>
-        <p>Optional API key authentication for shared deployments. Set API_KEYS env var, require Bearer tokens from clients.</p>
+        <p>Optional API key authentication for shared deployments. Set API_KEYS env var to require Bearer tokens.</p>
       </div>
       <div class="feature-card">
         <span class="feature-icon">{&nbsp;}</span>
-        <h3>All Models</h3>
-        <p>Opus 4.6, Sonnet 4.5, Haiku 4.5 — full model family. Provider-prefixed IDs supported for multi-provider setups.</p>
+        <h3>Current Models</h3>
+        <p>Fable 5, Opus 4.8, Sonnet 5, and Haiku 4.5. Provider-prefixed IDs are supported for compatibility.</p>
       </div>
     </div>
   </section>
 
   <section class="comparison reveal" id="pricing">
-    <h2>The math speaks for itself</h2>
+    <h2>Compatibility and caveats</h2>
     <div class="code-block">
-      <table>
-        <thead>
-          <tr>
-            <th>Approach</th>
-            <th>Monthly Cost</th>
-            <th>API Access</th>
-            <th>Third-Party Tools</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Claude API (Opus)</td>
-            <td>$500&ndash;2,000+</td>
-            <td>Full</td>
-            <td>Full</td>
-          </tr>
-          <tr>
-            <td>Claude Max (no proxy)</td>
-            <td>$200</td>
-            <td>CLI only</td>
-            <td>None</td>
-          </tr>
-          <tr class="highlight">
-            <td>Max + This Proxy <span class="badge">Best</span></td>
-            <td>$200</td>
-            <td>Full</td>
-            <td>Full</td>
-          </tr>
-        </tbody>
-      </table>
+      <ul>
+        <li>Support list, not entitlement list: access depends on your Claude account and Anthropic rollout.</li>
+        <li>Fable access may require credits or broader rollout availability.</li>
+        <li>Unofficial project; not affiliated with Anthropic.</li>
+        <li>Claude is a trademark of Anthropic PBC.</li>
+        <li>Source installation only; no npm publication or global package claims.</li>
+      </ul>
     </div>
   </section>
 
@@ -770,18 +749,18 @@
   </section>
 
   <section class="bottom-cta reveal">
-    <h2>Stop paying per token</h2>
-    <p>You're already paying $200/mo. Get the API access you deserve.</p>
+    <h2>Source install and verify</h2>
+    <p>Clone from GitHub, build locally, and review Anthropic terms before use.</p>
     <div class="cta-row">
-      <a href="https://github.com/atalovesyou/claude-max-api-proxy" class="btn-primary">Get Started</a>
-      <a href="https://github.com/atalovesyou/claude-max-api-proxy#readme" class="btn-secondary">Read the Docs</a>
+      <a href="https://github.com/wasmake/claude-openai" class="btn-primary">Get Started</a>
+      <a href="https://github.com/wasmake/claude-openai#readme" class="btn-secondary">Read the Docs</a>
     </div>
   </section>
 
   <footer>
     <span>MIT License &middot; Built by <a href="https://github.com/atalovesyou">@atalovesyou</a></span>
     <span>
-      <a href="https://github.com/atalovesyou/claude-max-api-proxy">GitHub</a>
+      <a href="https://github.com/wasmake/claude-openai">GitHub</a>
     </span>
   </footer>
 </div>
@@ -798,31 +777,6 @@
   }, { threshold: 0.15 });
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-  // Animated savings counter
-  function animateCounter(el, target, prefix, suffix) {
-    let current = 0;
-    const duration = 1500;
-    const step = target / (duration / 16);
-    const timer = setInterval(() => {
-      current += step;
-      if (current >= target) {
-        current = target;
-        clearInterval(timer);
-        el.textContent = prefix + current.toLocaleString() + suffix;
-      } else {
-        el.textContent = prefix + Math.floor(current).toLocaleString() + suffix;
-      }
-    }, 16);
-  }
-
-  const savingsEl = document.getElementById('savings-counter');
-  const savingsObs = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting) {
-      animateCounter(savingsEl, 1000, '$', '+/mo');
-      savingsObs.disconnect();
-    }
-  }, { threshold: 0.5 });
-  savingsObs.observe(savingsEl);
 </script>
 </body>
 </html>

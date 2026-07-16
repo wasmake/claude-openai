@@ -4,6 +4,10 @@ import { extractModel, messagesToPrompt, extractSystemPrompt, openaiToCli } from
 
 describe("extractModel", () => {
   it("maps direct model names", () => {
+    assert.equal(extractModel("claude-fable-5"), "fable");
+    assert.equal(extractModel("claude-opus-4-8"), "opus");
+    assert.equal(extractModel("claude-sonnet-5"), "sonnet");
+    assert.equal(extractModel("claude-haiku-4-5-20251001"), "haiku");
     assert.equal(extractModel("claude-opus-4"), "opus");
     assert.equal(extractModel("claude-opus-4-6"), "opus");
     assert.equal(extractModel("claude-sonnet-4"), "sonnet");
@@ -13,20 +17,23 @@ describe("extractModel", () => {
   });
 
   it("maps provider-prefixed names", () => {
-    assert.equal(extractModel("claude-code-cli/claude-opus-4"), "opus");
+    assert.equal(extractModel("claude-openai/claude-fable-5"), "fable");
+    assert.equal(extractModel("claude-code-cli/claude-opus-4-8"), "opus");
     assert.equal(extractModel("anthropic/claude-opus-4-6"), "opus");
-    assert.equal(extractModel("claude-max/claude-sonnet-4"), "sonnet");
+    assert.equal(extractModel("claude-max/claude-sonnet-5"), "sonnet");
   });
 
   it("maps aliases", () => {
+    assert.equal(extractModel("fable"), "fable");
     assert.equal(extractModel("opus"), "opus");
     assert.equal(extractModel("sonnet"), "sonnet");
     assert.equal(extractModel("haiku"), "haiku");
+    assert.equal(extractModel("claude-haiku-4-5"), "haiku");
   });
 
-  it("defaults to opus for unknown models", () => {
-    assert.equal(extractModel("gpt-4o"), "opus");
-    assert.equal(extractModel("unknown-model"), "opus");
+  it("rejects unknown models instead of defaulting", () => {
+    assert.throws(() => extractModel("gpt-4o"), /invalid_model/);
+    assert.throws(() => extractModel("unknown-model"), /invalid_model/);
   });
 });
 
@@ -110,7 +117,7 @@ describe("extractSystemPrompt", () => {
 describe("openaiToCli", () => {
   it("returns prompt and model", () => {
     const result = openaiToCli({
-      model: "claude-opus-4-6",
+      model: "claude-openai/claude-opus-4-8",
       messages: [{ role: "user", content: "Test" }],
     });
     assert.equal(result.model, "opus");
@@ -128,7 +135,7 @@ describe("openaiToCli", () => {
 
   it("extracts system prompt separately", () => {
     const result = openaiToCli({
-      model: "claude-opus-4-6",
+      model: "claude-openai/claude-opus-4-8",
       messages: [
         { role: "system", content: "Be concise" },
         { role: "user", content: "Hello" },
@@ -136,5 +143,12 @@ describe("openaiToCli", () => {
     });
     assert.equal(result.systemPrompt, "Be concise");
     assert.equal(result.prompt, "Hello");
+  });
+
+  it("rejects invalid model input", () => {
+    assert.throws(() => openaiToCli({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: "Test" }],
+    }), /invalid_model/);
   });
 });

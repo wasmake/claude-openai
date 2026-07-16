@@ -1,4 +1,4 @@
-# Contributing to Claude Code CLI Provider
+# Contributing to Claude OpenAI
 
 Thank you for your interest in contributing!
 
@@ -7,7 +7,7 @@ Thank you for your interest in contributing!
 1. Clone the repository
 2. Install dependencies: `npm install`
 3. Build: `npm run build`
-4. Run: `node dist/server/standalone.js`
+ 4. Run: `node dist/server/standalone.js`
 
 ## Making Changes
 
@@ -35,12 +35,12 @@ node dist/server/standalone.js
 # Test non-streaming
 curl -X POST http://localhost:3456/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "claude-haiku-4", "messages": [{"role": "user", "content": "Hi"}]}'
+  -d '{"model": "claude-openai/claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Hi"}]}'
 
 # Test streaming
 curl -N -X POST http://localhost:3456/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "claude-haiku-4", "messages": [{"role": "user", "content": "Hi"}], "stream": true}'
+  -d '{"model": "claude-openai/claude-haiku-4-5-20251001", "messages": [{"role": "user", "content": "Hi"}], "stream": true}'
 ```
 
 ## Reporting Issues

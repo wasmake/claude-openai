@@ -1,54 +1,43 @@
 /**
- * Claude Code CLI Provider Plugin for Clawdbot
+ * Claude OpenAI Provider Plugin for Clawdbot
  *
- * Enables using Claude Max subscription through Claude Code CLI,
- * bypassing OAuth token scope restrictions.
+ * Enables local OpenAI-compatible access through Claude Code CLI.
  */
 
 import { startServer, stopServer, getServer } from "./server/index.js";
 import { verifyClaude, verifyAuth } from "./subprocess/manager.js";
+import { getCurrentModels, getEffectivePricing, getModelDisplayName } from "./models.js";
 
 // Provider constants
-const PROVIDER_ID = "claude-code-cli";
-const PROVIDER_LABEL = "Claude Code CLI";
+export const PROVIDER_ID = "claude-openai";
+export const PROVIDER_LABEL = "Claude OpenAI";
 const DEFAULT_PORT = 3456;
-const DEFAULT_MODEL = "claude-code-cli/claude-sonnet-4";
+export const DEFAULT_MODEL = `${PROVIDER_ID}/claude-sonnet-5`;
 
 // Available models
-const AVAILABLE_MODELS = [
-  {
-    id: "claude-opus-4",
-    name: "Claude Opus 4.5",
-    alias: "opus",
-    reasoning: true,
-  },
-  {
-    id: "claude-sonnet-4",
-    name: "Claude Sonnet 4",
-    alias: "sonnet",
-    reasoning: false,
-  },
-  {
-    id: "claude-haiku-4",
-    name: "Claude Haiku 4",
-    alias: "haiku",
-    reasoning: false,
-  },
-];
+export const AVAILABLE_MODELS = getCurrentModels();
 
 /**
  * Build model definitions for Clawdbot config
  */
-function buildModelDefinition(model: (typeof AVAILABLE_MODELS)[number]) {
+export function buildModelDefinition(model: (typeof AVAILABLE_MODELS)[number]) {
+  const pricing = getEffectivePricing(model.id);
+
   return {
     id: model.id,
-    name: model.name,
+    name: getModelDisplayName(model.id) || model.id,
     api: "openai-completions",
-    reasoning: model.reasoning,
+    reasoning: model.capabilities.reasoning,
+    extendedThinking: model.capabilities.extendedThinking,
     input: ["text"],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 200000,
-    maxTokens: 8192,
+    cost: {
+      input: pricing.input,
+      output: pricing.output,
+      cacheRead: pricing.cacheRead,
+      cacheWrite: pricing.cacheWrite,
+    },
+    contextWindow: model.capabilities.contextWindow,
+    maxTokens: model.capabilities.maxOutputTokens,
   };
 }
 
@@ -67,10 +56,10 @@ function emptyPluginConfigSchema() {
  * Plugin definition
  */
 const claudeCodeCliPlugin = {
-  id: "claude-code-cli-provider",
-  name: "Claude Code CLI Provider",
+  id: "claude-openai-provider",
+  name: "Claude OpenAI Provider",
   description:
-    "Use Claude Max subscription via Claude Code CLI (bypasses OAuth restrictions)",
+    "Use Claude subscriptions via Claude Code CLI as an OpenAI-compatible local provider",
   configSchema: emptyPluginConfigSchema(),
 
   register(api: any) {
@@ -80,15 +69,15 @@ const claudeCodeCliPlugin = {
     api.registerProvider({
       id: PROVIDER_ID,
       label: PROVIDER_LABEL,
-      docsPath: "/providers/claude-code-cli",
-      aliases: ["claude-cli", "claude-max"],
+      docsPath: "/providers/claude-openai",
+      aliases: ["claude-cli", "claude-code-cli", "claude-max"],
       envVars: [], // No env vars needed - uses Claude CLI auth
 
       auth: [
         {
           id: "local",
           label: "Local Claude CLI",
-          hint: "Uses your existing Claude Code CLI authentication (from Claude Max)",
+            hint: "Uses your existing Claude Code CLI authentication",
           kind: "custom",
 
           run: async (ctx: any) => {
@@ -112,7 +101,7 @@ const claudeCodeCliPlugin = {
               if (!authCheck.ok) {
                 spin.stop("Not authenticated");
                 await ctx.prompter.note(
-                  "Run 'claude auth login' to authenticate with your Claude Max account",
+                  "Run 'claude auth login' to authenticate with your Claude account",
                   "Authentication"
                 );
                 throw new Error(authCheck.error);
@@ -175,7 +164,7 @@ const claudeCodeCliPlugin = {
                 },
                 defaultModel: DEFAULT_MODEL,
                 notes: [
-                  "This uses your Claude Max subscription via Claude Code CLI.",
+                  "This uses your Claude subscription via Claude Code CLI.",
                   "Your OAuth token is used by the CLI, not exposed directly.",
                   `Local server running at http://127.0.0.1:${serverPort}`,
                   "Keep the server running to use this provider.",
@@ -194,7 +183,7 @@ const claudeCodeCliPlugin = {
     api.on("plugin:unload", async () => {
       const server = getServer();
       if (server) {
-        console.log("[ClaudeCodeCLI] Stopping server on plugin unload");
+        console.log("[ClaudeOpenAI] Stopping server on plugin unload");
         await stopServer();
       }
     });
@@ -202,8 +191,8 @@ const claudeCodeCliPlugin = {
     // Register CLI command for manual server control
     api.registerCli?.((cli: any) => {
       cli
-        .command("claude-cli:start [port]")
-        .description("Start the Claude CLI proxy server")
+        .command("claude-openai:start [port]")
+        .description("Start the Claude OpenAI proxy server")
         .action(async (port: string) => {
           const p = parseInt(port || String(DEFAULT_PORT), 10);
           await startServer({ port: p });
@@ -211,16 +200,74 @@ const claudeCodeCliPlugin = {
         });
 
       cli
-        .command("claude-cli:stop")
-        .description("Stop the Claude CLI proxy server")
+        .command("claude-code-cli:start [port]")
+        .description("Start the Claude OpenAI proxy server (compatibility alias)")
+        .action(async (port: string) => {
+          const p = parseInt(port || String(DEFAULT_PORT), 10);
+          await startServer({ port: p });
+          console.log(`Server started on port ${p}`);
+        });
+
+      cli
+        .command("claude-cli:start [port]")
+        .description("Start the Claude OpenAI proxy server (legacy alias)")
+        .action(async (port: string) => {
+          const p = parseInt(port || String(DEFAULT_PORT), 10);
+          await startServer({ port: p });
+          console.log(`Server started on port ${p}`);
+        });
+
+      cli
+        .command("claude-openai:stop")
+        .description("Stop the Claude OpenAI proxy server")
         .action(async () => {
           await stopServer();
           console.log("Server stopped");
         });
 
       cli
+        .command("claude-code-cli:stop")
+        .description("Stop the Claude OpenAI proxy server (compatibility alias)")
+        .action(async () => {
+          await stopServer();
+          console.log("Server stopped");
+        });
+
+      cli
+        .command("claude-cli:stop")
+        .description("Stop the Claude OpenAI proxy server (legacy alias)")
+        .action(async () => {
+          await stopServer();
+          console.log("Server stopped");
+        });
+
+      cli
+        .command("claude-openai:status")
+        .description("Check Claude OpenAI proxy server status")
+        .action(() => {
+          const server = getServer();
+          if (server) {
+            console.log(`Server is running on port ${serverPort}`);
+          } else {
+            console.log("Server is not running");
+          }
+        });
+
+      cli
+        .command("claude-code-cli:status")
+        .description("Check Claude OpenAI proxy server status (compatibility alias)")
+        .action(() => {
+          const server = getServer();
+          if (server) {
+            console.log(`Server is running on port ${serverPort}`);
+          } else {
+            console.log("Server is not running");
+          }
+        });
+
+      cli
         .command("claude-cli:status")
-        .description("Check Claude CLI proxy server status")
+        .description("Check Claude OpenAI proxy server status (legacy alias)")
         .action(() => {
           const server = getServer();
           if (server) {
@@ -231,7 +278,7 @@ const claudeCodeCliPlugin = {
         });
     });
 
-    console.log("[ClaudeCodeCLI] Plugin registered");
+    console.log("[ClaudeOpenAI] Plugin registered");
   },
 };
 
@@ -240,6 +287,5 @@ export default claudeCodeCliPlugin;
 // Also export server utilities for standalone use
 export { startServer, stopServer, getServer } from "./server/index.js";
 export { ClaudeSubprocess, verifyClaude, verifyAuth } from "./subprocess/manager.js";
-export { sessionManager } from "./session/manager.js";
 export { usageTracker } from "./usage/tracker.js";
 export type { UsageSummary, RequestRecord } from "./usage/tracker.js";

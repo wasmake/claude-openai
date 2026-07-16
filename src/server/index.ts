@@ -8,6 +8,7 @@ import express, { Express, Request, Response, NextFunction } from "express";
 import { createServer, Server } from "http";
 import { handleChatCompletions, handleModels, handleHealth, handleUsage, handleUsageRecent } from "./routes.js";
 import { initAuth, authMiddleware } from "./auth.js";
+import { usageTracker } from "../usage/tracker.js";
 
 export interface ServerConfig {
   port: number;
@@ -99,6 +100,8 @@ export async function startServer(config: ServerConfig): Promise<Server> {
     return serverInstance;
   }
 
+  await usageTracker.load();
+
   const app = createApp();
 
   return new Promise((resolve, reject) => {
@@ -113,7 +116,7 @@ export async function startServer(config: ServerConfig): Promise<Server> {
     });
 
     serverInstance.listen(port, host, () => {
-      console.log(`[Server] Claude Code CLI provider running at http://${host}:${port}`);
+      console.log(`[Server] Claude OpenAI provider running at http://${host}:${port}`);
       console.log(`[Server] OpenAI-compatible endpoint: http://${host}:${port}/v1/chat/completions`);
       console.log(`[Server] Usage dashboard: http://${host}:${port}/v1/usage`);
       resolve(serverInstance!);

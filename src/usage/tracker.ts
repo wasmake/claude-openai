@@ -7,6 +7,7 @@
 
 import fs from "fs/promises";
 import path from "path";
+import { getEffectivePricing, resolveModel } from "../models.js";
 
 export interface RequestRecord {
   timestamp: number;
@@ -41,16 +42,15 @@ export interface UsageSummary {
   lastRequest: number | null;
 }
 
-// Anthropic API pricing (per million tokens)
-const PRICING: Record<string, { input: number; output: number }> = {
-  opus:   { input: 15.00, output: 75.00 },
-  sonnet: { input: 3.00,  output: 15.00 },
-  haiku:  { input: 0.25,  output: 1.25  },
-};
+// Official Anthropic API pricing verified 2026-07-16:
+// https://docs.anthropic.com/en/docs/about-claude/models
+// https://www.anthropic.com/pricing
+// Fable 5: $10/$50, Opus 4.8: $5/$25, Sonnet 5: $2/$10 intro through 2026-08-31,
+// Haiku 4.5: $1/$5.
 
 const DEFAULT_DATA_DIR = path.join(
   process.env.HOME || "/tmp",
-  ".claude-max-proxy"
+  ".claude-openai"
 );
 
 export class UsageTracker {
@@ -94,16 +94,16 @@ export class UsageTracker {
     durationMs: number;
     stream: boolean;
     success: boolean;
+    recordedAtMs?: number;
   }): void {
-    const cliModel = entry.model.toLowerCase();
-    let pricingKey = "sonnet";
-    if (cliModel.includes("opus")) pricingKey = "opus";
-    else if (cliModel.includes("haiku")) pricingKey = "haiku";
-
-    const pricing = PRICING[pricingKey];
+    const resolved = resolveModel(entry.model);
+    const pricingKey = resolved?.family ?? "unknown";
+    const pricing = resolved ? getEffectivePricing(resolved.canonicalModelId, entry.recordedAtMs) : { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
     const estimatedCost =
       (entry.inputTokens / 1_000_000) * pricing.input +
-      (entry.outputTokens / 1_000_000) * pricing.output;
+      (entry.outputTokens / 1_000_000) * pricing.output +
+      (entry.cacheReadTokens || 0) * (pricing.cacheRead / 1_000_000) +
+      (entry.cacheWriteTokens || 0) * (pricing.cacheWrite / 1_000_000);
 
     const record: RequestRecord = {
       timestamp: Date.now(),
@@ -200,6 +200,7 @@ export class UsageTracker {
   private debouncedSave(): void {
     if (this.saveDebounce) clearTimeout(this.saveDebounce);
     this.saveDebounce = setTimeout(() => this.save(), 5000);
+    this.saveDebounce.unref?.();
   }
 
   private async save(): Promise<void> {
@@ -218,8 +219,3 @@ export class UsageTracker {
 
 // Singleton
 export const usageTracker = new UsageTracker();
-
-// Initialize on load
-usageTracker.load().catch(err =>
-  console.error("[UsageTracker] Load error:", err)
-);

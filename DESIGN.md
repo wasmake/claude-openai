@@ -1,8 +1,8 @@
-# Claude Code CLI Provider - Technical Design
+# Claude OpenAI - Technical Design (archival)
 
 ## Overview
 
-This plugin enables Clawdbot to use Claude Max subscription through the Claude Code CLI, bypassing the OAuth token scope restrictions that block direct API access.
+This document is archival design context for the Claude OpenAI provider. Historical names may appear in older sections for upstream provenance.
 
 ## Architecture
 

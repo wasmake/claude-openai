@@ -3,6 +3,9 @@
  */
 
 import type { OpenAIChatRequest, OpenAIContentPart } from "../types/openai.js";
+import { resolveModel } from "../models.js";
+import type { ClaudeModel } from "../models.js";
+export type { ClaudeModel } from "../models.js";
 
 /**
  * Extract text from message content which can be either a string
@@ -22,8 +25,6 @@ function extractText(content: string | OpenAIContentPart[]): string {
   return String(content);
 }
 
-export type ClaudeModel = "opus" | "sonnet" | "haiku";
-
 export interface CliInput {
   prompt: string;
   model: ClaudeModel;
@@ -31,58 +32,18 @@ export interface CliInput {
   sessionId?: string;
 }
 
-const MODEL_MAP: Record<string, ClaudeModel> = {
-  // Direct model names
-  "claude-opus-4": "opus",
-  "claude-opus-4-6": "opus",
-  "claude-sonnet-4": "sonnet",
-  "claude-sonnet-4-5-20250929": "sonnet",
-  "claude-haiku-4": "haiku",
-  "claude-haiku-4-5-20251001": "haiku",
-  // With provider prefix
-  "claude-code-cli/claude-opus-4": "opus",
-  "claude-code-cli/claude-opus-4-6": "opus",
-  "claude-code-cli/claude-sonnet-4": "sonnet",
-  "claude-code-cli/claude-sonnet-4-5-20250929": "sonnet",
-  "claude-code-cli/claude-haiku-4": "haiku",
-  "claude-code-cli/claude-haiku-4-5-20251001": "haiku",
-  // Anthropic-style model IDs (used by OpenClaw)
-  "anthropic/claude-opus-4-6": "opus",
-  "anthropic/claude-opus-4": "opus",
-  "anthropic/claude-sonnet-4": "sonnet",
-  "anthropic/claude-sonnet-4-5-20250929": "sonnet",
-  "anthropic/claude-haiku-4": "haiku",
-  "anthropic/claude-haiku-4-5-20251001": "haiku",
-  // Claude Max provider prefix (used by OpenClaw)
-  "claude-max/claude-opus-4-6": "opus",
-  "claude-max/claude-opus-4": "opus",
-  "claude-max/claude-sonnet-4": "sonnet",
-  "claude-max/claude-sonnet-4-5-20250929": "sonnet",
-  "claude-max/claude-haiku-4": "haiku",
-  "claude-max/claude-haiku-4-5-20251001": "haiku",
-  // Aliases
-  "opus": "opus",
-  "sonnet": "sonnet",
-  "haiku": "haiku",
-};
-
 /**
  * Extract Claude model alias from request model string
  */
 export function extractModel(model: string): ClaudeModel {
-  // Try direct lookup
-  if (MODEL_MAP[model]) {
-    return MODEL_MAP[model];
+  const resolved = resolveModel(model);
+  if (resolved) {
+    return resolved.cliAlias;
   }
 
-  // Try stripping provider prefix
-  const stripped = model.replace(/^claude-code-cli\//, "");
-  if (MODEL_MAP[stripped]) {
-    return MODEL_MAP[stripped];
-  }
-
-  // Default to opus (Claude Max subscription)
-  return "opus";
+  throw Object.assign(new Error(`invalid_model: unsupported model "${model}"`), {
+    code: "invalid_model",
+  });
 }
 
 /**
@@ -135,9 +96,17 @@ export function messagesToPrompt(messages: OpenAIChatRequest["messages"]): strin
  * Convert OpenAI chat request to CLI input format
  */
 export function openaiToCli(request: OpenAIChatRequest): CliInput {
+  const resolved = resolveModel(request.model);
+
+  if (!resolved) {
+    throw Object.assign(new Error(`invalid_model: unsupported model "${request.model}"`), {
+      code: "invalid_model",
+    });
+  }
+
   return {
     prompt: messagesToPrompt(request.messages),
-    model: extractModel(request.model),
+    model: resolved.cliAlias,
     systemPrompt: extractSystemPrompt(request.messages),
     sessionId: request.user, // Use OpenAI's user field for session mapping
   };

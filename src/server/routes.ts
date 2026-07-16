@@ -16,6 +16,30 @@ import type { OpenAIChatRequest } from "../types/openai.js";
 import type { ClaudeCliAssistant, ClaudeCliResult, ClaudeCliStreamEvent } from "../types/claude-cli.js";
 import { usageTracker } from "../usage/tracker.js";
 import { isAuthEnabled } from "./auth.js";
+import { listAdvertisedModels, resolveModel } from "../models.js";
+
+const APP_VERSION = "0.2.0";
+
+export function buildModelList() {
+  return {
+    object: "list" as const,
+    data: listAdvertisedModels(),
+  };
+}
+
+export function validateRequestedModel(model: unknown) {
+  return resolveModel(model);
+}
+
+function sendInvalidModel(res: Response, model: unknown): void {
+  res.status(400).json({
+    error: {
+      message: `Unsupported model: ${typeof model === "string" ? model : String(model)}`,
+      type: "invalid_request_error",
+      code: "invalid_model",
+    },
+  });
+}
 
 /**
  * Handle POST /v1/chat/completions
@@ -29,8 +53,15 @@ export async function handleChatCompletions(
   const requestId = uuidv4().replace(/-/g, "").slice(0, 24);
   const body = req.body as OpenAIChatRequest;
   const stream = body.stream === true;
-  const requestedModel = body.model || "claude-opus-4";
   const startTime = Date.now();
+
+  const resolvedModel = validateRequestedModel(body.model);
+  if (!resolvedModel) {
+    sendInvalidModel(res, body.model);
+    return;
+  }
+
+  const requestedModel = resolvedModel.requestedModel;
 
   try {
     // Validate request
@@ -46,7 +77,7 @@ export async function handleChatCompletions(
     }
 
     // Convert to CLI input format
-    const cliInput = openaiToCli(body);
+    const cliInput = openaiToCli({ ...body, model: requestedModel });
     const subprocess = new ClaudeSubprocess();
 
     if (stream) {
@@ -327,47 +358,7 @@ async function handleNonStreamingResponse(
  * Returns available models
  */
 export function handleModels(_req: Request, res: Response): void {
-  res.json({
-    object: "list",
-    data: [
-      {
-        id: "claude-opus-4-6",
-        object: "model",
-        owned_by: "anthropic",
-        created: Math.floor(Date.now() / 1000),
-      },
-      {
-        id: "claude-opus-4",
-        object: "model",
-        owned_by: "anthropic",
-        created: Math.floor(Date.now() / 1000),
-      },
-      {
-        id: "claude-sonnet-4-5-20250929",
-        object: "model",
-        owned_by: "anthropic",
-        created: Math.floor(Date.now() / 1000),
-      },
-      {
-        id: "claude-sonnet-4",
-        object: "model",
-        owned_by: "anthropic",
-        created: Math.floor(Date.now() / 1000),
-      },
-      {
-        id: "claude-haiku-4-5-20251001",
-        object: "model",
-        owned_by: "anthropic",
-        created: Math.floor(Date.now() / 1000),
-      },
-      {
-        id: "claude-haiku-4",
-        object: "model",
-        owned_by: "anthropic",
-        created: Math.floor(Date.now() / 1000),
-      },
-    ],
-  });
+  res.json(buildModelList());
 }
 
 /**
@@ -382,7 +373,7 @@ export function handleUsage(req: Request, res: Response): void {
   res.json({
     ...summary,
     maxSubscriptionCostUsd: 200,
-    note: "estimatedApiCostSavedUsd shows what these requests would have cost via Anthropic API",
+    note: "estimatedApiCostSavedUsd is an estimate only, based on official Anthropic pricing; it is not a bill.",
   });
 }
 
@@ -411,8 +402,8 @@ export function handleHealth(_req: Request, res: Response): void {
 
   res.json({
     status: "ok",
-    provider: "claude-code-cli",
-    version: "1.2.1",
+    provider: "claude-openai",
+    version: APP_VERSION,
     auth: isAuthEnabled() ? "enabled" : "disabled",
     usage: {
       totalRequests: summary.totalRequests,

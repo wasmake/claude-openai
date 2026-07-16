@@ -30,7 +30,7 @@ export function cliToOpenaiChunk(
     id: `chatcmpl-${requestId}`,
     object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
-    model: requestedModel || normalizeModelName(message.message.model),
+    model: requestedModel || message.message.model,
     choices: [
       {
         index: 0,
@@ -52,7 +52,7 @@ export function createDoneChunk(requestId: string, model: string): OpenAIChatChu
     id: `chatcmpl-${requestId}`,
     object: "chat.completion.chunk",
     created: Math.floor(Date.now() / 1000),
-    model: normalizeModelName(model),
+    model,
     choices: [
       {
         index: 0,
@@ -71,16 +71,15 @@ export function cliResultToOpenai(
   requestId: string,
   requestedModel?: string
 ): OpenAIChatResponse {
-  // Use the requested model so the gateway trusts the response
   const modelName = requestedModel || (result.modelUsage
     ? Object.keys(result.modelUsage)[0]
-    : "claude-sonnet-4");
+    : "claude-sonnet-5");
 
   return {
     id: `chatcmpl-${requestId}`,
     object: "chat.completion",
     created: Math.floor(Date.now() / 1000),
-    model: normalizeModelName(modelName),
+    model: modelName,
     choices: [
       {
         index: 0,
@@ -98,15 +97,4 @@ export function cliResultToOpenai(
         (result.usage?.input_tokens || 0) + (result.usage?.output_tokens || 0),
     },
   };
-}
-
-/**
- * Normalize Claude model names to a consistent format
- * e.g., "claude-sonnet-4-5-20250929" -> "claude-sonnet-4"
- */
-function normalizeModelName(model: string): string {
-  if (model.includes("opus")) return "claude-opus-4";
-  if (model.includes("sonnet")) return "claude-sonnet-4";
-  if (model.includes("haiku")) return "claude-haiku-4";
-  return model;
 }

@@ -8,7 +8,7 @@ import {
 } from "./cli-to-openai.js";
 import type { ClaudeCliAssistant, ClaudeCliResult } from "../types/claude-cli.js";
 
-const makeAssistant = (text: string, model = "claude-sonnet-4"): ClaudeCliAssistant => ({
+const makeAssistant = (text: string, model = "claude-sonnet-5"): ClaudeCliAssistant => ({
   type: "assistant",
   message: {
     model,
@@ -34,10 +34,10 @@ const makeResult = (text: string): ClaudeCliResult => ({
   session_id: "sess-1",
   total_cost_usd: 0.01,
   usage: { input_tokens: 100, output_tokens: 50 },
-  modelUsage: {
-    "claude-sonnet-4": { inputTokens: 100, outputTokens: 50, costUSD: 0.01 },
-  },
-});
+    modelUsage: {
+      "claude-sonnet-5": { inputTokens: 100, outputTokens: 50, costUSD: 0.01 },
+    },
+  });
 
 describe("extractTextContent", () => {
   it("extracts text from content array", () => {
@@ -74,8 +74,8 @@ describe("cliToOpenaiChunk", () => {
   });
 
   it("uses requestedModel when provided", () => {
-    const chunk = cliToOpenaiChunk(makeAssistant("hi", "claude-haiku-4"), "req-1", false, "claude-opus-4-6");
-    assert.equal(chunk.model, "claude-opus-4-6");
+    const chunk = cliToOpenaiChunk(makeAssistant("hi", "claude-haiku-4"), "req-1", false, "claude-openai/claude-opus-4-8");
+    assert.equal(chunk.model, "claude-openai/claude-opus-4-8");
   });
 });
 
@@ -103,14 +103,18 @@ describe("cliResultToOpenai", () => {
     assert.equal(response.usage.total_tokens, 150);
   });
 
-  it("uses requestedModel when provided (normalized)", () => {
-    const response = cliResultToOpenai(makeResult("Hello!"), "req-1", "claude-max/claude-opus-4-6");
-    // normalizeModelName extracts "opus" → "claude-opus-4"
-    assert.equal(response.model, "claude-opus-4");
+  it("preserves requestedModel when provided", () => {
+    const response = cliResultToOpenai(makeResult("Hello!"), "req-1", "claude-max/claude-opus-4-8");
+    assert.equal(response.model, "claude-max/claude-opus-4-8");
   });
 
-  it("normalizes model from modelUsage when no requestedModel", () => {
+  it("falls back to modelUsage when no requestedModel", () => {
     const response = cliResultToOpenai(makeResult("Hello!"), "req-1");
-    assert.equal(response.model, "claude-sonnet-4");
+    assert.equal(response.model, "claude-sonnet-5");
+  });
+
+  it("preserves done chunk model exactly", () => {
+    const chunk = createDoneChunk("req-1", "claude-openai/claude-sonnet-5");
+    assert.equal(chunk.model, "claude-openai/claude-sonnet-5");
   });
 });
